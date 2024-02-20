@@ -92,7 +92,7 @@ impl CPU {
         }
    } 
 
-   fn mem_read(&self, addr: u16) -> u8 {
+   pub fn mem_read(&self, addr: u16) -> u8 {
         self.memory[addr as usize]
     }
 
@@ -130,8 +130,8 @@ impl CPU {
     }
     
     pub fn load(&mut self, program: Vec<u8>){
-        self.memory[0x8000 .. (program.len())].copy_from_slice(&program[..]);
-        self.program_counter = 0x8000;
+        self.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
+        self.mem_write_u16(0xFFFc ,0x8000);
     }
     
 
@@ -156,10 +156,17 @@ impl CPU {
 
     // Load value to register A
    fn lda(&mut self, mode: &AddressingMode){
-        let addr = self.get_operand_address(mode);
+        println!("THIS IS THE MODE" );
+        let addr = self.get_operand_address(&mode);
+        println!("THIS IS THE ADDR {}", addr);
         let value = self.mem_read(addr);
+        println!("THIS IS IT");
+        println!("{}",value);
         self.register_a = value;
-        self.update_status_flag(self.register_a)
+        self.update_status_flag(self.register_a);
+        println!("This is register A");
+        println!();
+        println!("{}",self.register_a);
    }
    
 
@@ -184,11 +191,14 @@ impl CPU {
 
    pub fn interpret(&mut self) {
     loop {
+        //self.program_counter += 1;
         let opscode = self.mem_read(self.program_counter);
+        println!("THIS IS THE OPSCODE {}",opscode);
         self.program_counter += 1;
 
         match opscode {
         0xA9 => {
+            println!("IT WAS MATCHED");
             self.lda(&AddressingMode::Immediate);
             // let param = program[self.program_counter as usize];
             self.program_counter += 1;
@@ -197,6 +207,7 @@ impl CPU {
 
         0xA5 => {
             self.lda(&AddressingMode::ZeroPage);
+
             self.program_counter += 1;
         }
 
@@ -216,7 +227,7 @@ impl CPU {
         0xCA => {
             self.dex();
         }
-        0x00 => {return ;}
+        0x00 => return, 
 
             _ => panic!("Unknown opcode encountered"),
         }
