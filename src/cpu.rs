@@ -193,12 +193,12 @@ impl CPU {
     loop {
         //self.program_counter += 1;
         let opscode = self.mem_read(self.program_counter);
-        println!("THIS IS THE OPSCODE {}",opscode);
+        // println!("THIS IS THE OPSCODE {}",opscode);
         self.program_counter += 1;
 
         match opscode {
         0xA9 => {
-            println!("IT WAS MATCHED");
+            // println!("IT WAS MATCHED");
             self.lda(&AddressingMode::Immediate);
             // let param = program[self.program_counter as usize];
             self.program_counter += 1;

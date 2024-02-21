@@ -28,9 +28,9 @@ mod test{
     #[test]
     fn test_moving_register_a_to_reg_x(){
         let mut cpu = CPU::new();
-        cpu.load_and_run(vec![0xa9, 0x04, 0x00]);
-        assert_eq!(cpu.register_a, 0x04);
-        cpu.load_and_run(vec![0xAA, 0x00]);
+        cpu.load_and_run(vec![0xA9, 0x04, 0xAA,0x00]);
+        //assert_eq!(cpu.register_a, 0x04);
+        //cpu.load_and_run(vec![0xAA, 0x00]);
         assert_eq!(cpu.register_x, cpu.register_a);
         assert_eq!(cpu.register_x, 0x04);
     }
@@ -38,9 +38,9 @@ mod test{
     #[test]
     fn test_increment_reg_x(){
         let mut cpu = CPU::new();
-        cpu.load_and_run(vec![0xa9, 0x03, 0x00]);
-        cpu.load_and_run(vec![0xAA, 0x00]);
-        cpu.load_and_run(vec![0xE8, 0x00]);
+        cpu.load_and_run(vec![0xa9, 0x03,0xAA,0xE8, 0x00]);
+        //cpu.load_and_run(vec![0xAA, 0x00]);
+        //cpu.load_and_run(vec![0xE8, 0x00]);
         assert_eq!(cpu.register_x, 4);
     }
 
@@ -56,8 +56,9 @@ mod test{
    #[test]
    fn test_decrement_reg_x(){
         let mut cpu = CPU::new();
-        cpu.register_x = 5;
-        cpu.load_and_run(vec![0xCA, 0x00]);
+        cpu.load_and_run(vec![0xa9, 0x05, 0xAA, 0xCA, 0x00]);
+        //cpu.load_and_run(vec![0xAA,0x00]);
+        //cpu.load_and_run(vec![0xCA, 0x00]);
         assert_eq!(cpu.register_x, 4);
    }
 }
