@@ -1,6 +1,6 @@
 pub struct CPU {
    pub register_a: u8,
-   pub status: u8,
+   pub status: CpuFlags,
    pub register_x: u8,
    pub register_y: u8,
    pub program_counter: u16,
@@ -22,12 +22,28 @@ pub enum AddressingMode {
    NoneAddressing,
 }
 
+bitflags!{
+
+    pub struct CpuFlags: u8{
+       const CARRY = 0b00000001;
+       const ZERO = 0b00000010;
+       const INTERRUPT_DISABLE = 0b00000100;
+       const DECIMAL_MODE = 0b00001000;
+       const BREAK = 0b00010000;
+       const BREAK2 = 0b00100000;
+       const OVERFLOW = 0b01000000;
+       const NEGATIVE = 0b10000000;
+    }
+
+  }
+const STACK:u16 = 0x1000;
+const STACK_RESET: u8 = 0xfd;
 
 impl CPU {
    pub fn new() -> Self {
        CPU {
            register_a: 0,
-           status: 0,
+           status: CpuFlags::from_bits_truncate(0b100100),
            program_counter: 0,
            register_x: 0,
            register_y: 0,
@@ -117,7 +133,7 @@ impl CPU {
     pub fn reset(&mut self) {
         self.register_a = 0;
         self.register_x = 0;
-        self.status = 0;
+        self.status = CpuFlags::from_bits_truncate(0b100100);
 
         self.program_counter = self.mem_read_u16(0xFFFC);
     }
@@ -133,40 +149,37 @@ impl CPU {
         self.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
         self.mem_write_u16(0xFFFc ,0x8000);
     }
-    
+   
+    fn set_register_a(&mut self, value: u8) {
+        self.register_a = value;
+        self.update_status_flag(self.register_a);
+    }
 
  fn update_status_flag(&mut self, register: u8)
    {
         // Update Zero Flag (Z)
         if register == 0 {
-            self.status |= 0b0000_0010;
+            self.status.insert(CpuFlags::ZERO);
         } else {
-            self.status &= 0b1111_1101;
+            self.status.remove(CpuFlags::ZERO);
         }
 
         // Update Sign Flag (N)
         if register & 0b1000_0000 != 0 
         {
-            self.status |= 0b1000_0000;
+            self.status.insert(CpuFlags::NEGATIVE);
         } else {
-            self.status &= 0b0111_1111;
+            self.status.remove(CpuFlags::NEGATIVE);
         }
    }
 
 
     // Load value to register A
    fn lda(&mut self, mode: &AddressingMode){
-        println!("THIS IS THE MODE" );
         let addr = self.get_operand_address(&mode);
-        println!("THIS IS THE ADDR {}", addr);
         let value = self.mem_read(addr);
-        println!("THIS IS IT");
-        println!("{}",value);
         self.register_a = value;
         self.update_status_flag(self.register_a);
-        println!("This is register A");
-        println!();
-        println!("{}",self.register_a);
    }
    
 
@@ -188,31 +201,56 @@ impl CPU {
         self.register_x = self.register_x.wrapping_sub(1);
         self.update_status_flag(self.register_x);
    }
+   
+   fn add_to_register_a(&mut self, data: u8){
+        let sum = self.register_a as u16 + data as u16 + (if self.status.contains(CpuFlags::CARRY){1} else {0}) as u16;
+        let carry = sum > 255;
+        if carry {self.status.insert(CpuFlags::CARRY);} else {self.status.remove(CpuFlags::CARRY);}
+        let result = sum as u8;
+        if (data ^ result) & (result ^ self.register_a) & 0x80 != 0 {self.status.insert(CpuFlags::OVERFLOW);} else {self.status.remove(CpuFlags::OVERFLOW);}
+        self.set_register_a(result);
+
+   } 
+   // Add with Carry
+   fn adc(&mut self, mode: &AddressingMode){
+        let addr = self.get_operand_address(&mode);
+        let value = self.mem_read(addr);
+        self.add_to_register_a(value);
+   }
 
    pub fn interpret(&mut self) {
     loop {
-        //self.program_counter += 1;
         let opscode = self.mem_read(self.program_counter);
-        // println!("THIS IS THE OPSCODE {}",opscode);
         self.program_counter += 1;
 
         match opscode {
         0xA9 => {
-            // println!("IT WAS MATCHED");
             self.lda(&AddressingMode::Immediate);
-            // let param = program[self.program_counter as usize];
             self.program_counter += 1;
-            // self.lda(param);     
         }
 
         0xA5 => {
             self.lda(&AddressingMode::ZeroPage);
-
             self.program_counter += 1;
         }
 
         0xAD => {
             self.lda(&AddressingMode::Absolute);
+            self.program_counter += 1;
+        }
+
+        0x69 => {
+            self.adc(&AddressingMode::Immediate);
+            self.program_counter += 1;
+        }
+
+        0x65 => {
+            self.adc(&AddressingMode::ZeroPage);
+            self.program_counter += 1;
+        }
+
+        0x6D => {
+            self.adc(&AddressingMode::Absolute);
             self.program_counter += 1;
         }
 
@@ -229,7 +267,7 @@ impl CPU {
         }
         0x00 => return, 
 
-            _ => panic!("Unknown opcode encountered"),
+            _ => panic!("Unknown {} opcode encountered", opscode),
         }
     }
    }
