@@ -188,7 +188,28 @@ impl CPU {
         self.register_x = self.register_a;
         self.update_status_flag(self.register_x);
    }
- 
+    
+    
+
+   // Arithmetic Shift Left
+   fn asl_accumulator(&mut self){
+        let mut value = self.register_a;
+        let carry = value > 128;
+        if carry {self.status.insert(CpuFlags::CARRY);} else {self.status.remove(CpuFlags::CARRY);}
+        value *= 2;
+        self.set_register_a(value as u8);     
+   }
+
+   fn asl(&mut self, mode: &AddressingMode) -> u8{
+        let addr = self.get_operand_address(&mode);
+        let mut value = self.mem_read(addr);
+        let carry = value > 128;
+        if carry {self.status.insert(CpuFlags::CARRY);} else {self.status.remove(CpuFlags::CARRY);}
+        value *= 2;
+        self.mem_write(addr, value);
+        self.update_status_flag(value);
+        value
+    }
     
     // INX (INcrement X)
    fn inx(&mut self){
@@ -216,6 +237,20 @@ impl CPU {
         let addr = self.get_operand_address(&mode);
         let value = self.mem_read(addr);
         self.add_to_register_a(value);
+   }
+   
+   fn bitwise_and(&mut self, data: u8){
+        let value = self.register_a & data;
+        let zero :bool = value == 0;
+        if zero {self.status.insert(CpuFlags::ZERO);} else {self.status.remove(CpuFlags::ZERO);}
+        let result = value as u8;
+        self.set_register_a(result);
+   } 
+   // Bitwise AND with accumulator
+   fn and(&mut self, mode: &AddressingMode){
+        let addr = self.get_operand_address(&mode);
+        let value = self.mem_read(addr);
+        self.bitwise_and(value);
    }
 
    pub fn interpret(&mut self) {
@@ -253,6 +288,44 @@ impl CPU {
             self.adc(&AddressingMode::Absolute);
             self.program_counter += 1;
         }
+        
+        0x29 => {
+            self.and(&AddressingMode::Immediate);
+            self.program_counter += 1;
+        }
+
+        0x25 => {
+            self.and(&AddressingMode::ZeroPage);
+            self.program_counter += 1;
+        }
+
+        0x2D => {
+            self.and(&AddressingMode::Absolute);
+            self.program_counter += 1;
+        }
+        
+        0x0A => self.asl_accumulator(),
+
+        0x06 => {
+            self.asl(&AddressingMode::ZeroPage);
+            self.program_counter += 1;
+        }
+
+        0x16 => {
+            self.asl(&AddressingMode::ZeroPage_X);
+            self.program_counter += 1;
+        }        
+
+        0x0E => {
+            self.asl(&AddressingMode::Absolute);
+            self.program_counter += 1;
+        }
+
+        0x0E => {
+            self.asl(&AddressingMode::Absolute_X);
+            self.program_counter += 1;
+        }
+
 
         0xAA => {
             self.tax();

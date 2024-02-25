@@ -61,7 +61,20 @@ mod test{
         assert_eq!(cpu.register_a, 0x11);
 
    }
-
+    
+   #[test]
+   fn test_bitwise_and(){
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, 0x10, 0x29, 0x11, 0x00]);
+        assert_eq!(cpu.register_a, 0x10);
+   }
+    
+   #[test]
+   fn test_asl(){
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, 0x10, 0x0A, 0x00]);
+        assert_eq!(cpu.register_a, 0x20);
+   }
 
 }
 

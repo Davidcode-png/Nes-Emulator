@@ -1,5 +1,5 @@
 pub mod cpu;
-
+pub mod operands;
 #[macro_use]
 extern crate bitflags;
 
