@@ -1,8 +1,11 @@
+use bitflags::Flags;
+
 pub struct CPU {
    pub register_a: u8,
    pub status: CpuFlags,
    pub register_x: u8,
    pub register_y: u8,
+   pub stack_pointer: u8,
    pub program_counter: u16,
    memory: [u8; 0xFFFF]
 }
@@ -47,6 +50,7 @@ impl CPU {
            program_counter: 0,
            register_x: 0,
            register_y: 0,
+           stack_pointer: STACK_RESET,
            memory: [0; 0xFFFF]
        }
    }
@@ -134,7 +138,7 @@ impl CPU {
         self.register_a = 0;
         self.register_x = 0;
         self.status = CpuFlags::from_bits_truncate(0b100100);
-
+        self.stack_pointer = STACK_RESET;
         self.program_counter = self.mem_read_u16(0xFFFC);
     }
 
@@ -173,7 +177,18 @@ impl CPU {
         }
    }
 
+    
+ fn stack_push(&mut self, data: u8){
+   self.mem_write((STACK as u16) + self.stack_pointer as u16, data);
+   self.stack_pointer = self.stack_pointer.wrapping_sub(1);
 
+ }
+ fn stack_push_u16(&mut self, data: u16) {
+        let hi = (data >> 8) as u8;
+        let lo = (data & 0xff) as u8;
+        self.stack_push(hi);
+        self.stack_push(lo);
+ }
     // Load value to register A
    fn lda(&mut self, mode: &AddressingMode){
         let addr = self.get_operand_address(&mode);
@@ -253,6 +268,38 @@ impl CPU {
         self.bitwise_and(value);
    }
 
+   fn sec(&mut self){
+        self.status.insert(CpuFlags::CARRY);
+   }
+
+   fn rol_accumulator(&mut self){
+        let value = self.register_a;
+        let carry = self.status.contains(CpuFlags::CARRY);
+        let new_carry = (value & 0b10000000) != 0;
+        let shifted_value = (value << 1) | carry as u8;
+        if new_carry{self.status.insert(CpuFlags::CARRY);} else {self.status.remove(CpuFlags::CARRY);}
+        self.set_register_a(shifted_value);
+   }
+   
+   fn rol(&mut self, mode: &AddressingMode) -> u8{
+        let addr = self.get_operand_address(&mode);
+        let value = self.mem_read(addr);
+        let carry = self.status.contains(CpuFlags::CARRY);
+        let new_carry = (value & 0b10000000) != 0;
+        let shifted_value = (value << 1) | carry as u8;
+        if new_carry{self.status.insert(CpuFlags::CARRY);} else {self.status.remove(CpuFlags::CARRY);}
+        self.mem_write(addr, shifted_value);
+        self.update_status_flag(value);
+        shifted_value
+   }
+
+   /* Logical Inclusive OR*/
+   fn ora(&mut self, mode: &AddressingMode){
+        let addr = self.get_operand_address(&mode);
+        let value = self.mem_read(addr);
+        self.set_register_a(value | self.register_a);
+   }
+
    pub fn interpret(&mut self) {
     loop {
         let opscode = self.mem_read(self.program_counter);
@@ -305,7 +352,7 @@ impl CPU {
         }
         
         0x0A => self.asl_accumulator(),
-
+    
         0x06 => {
             self.asl(&AddressingMode::ZeroPage);
             self.program_counter += 1;
@@ -315,6 +362,15 @@ impl CPU {
             self.asl(&AddressingMode::ZeroPage_X);
             self.program_counter += 1;
         }        
+
+
+        0x09 => {
+            self.ora(&AddressingMode::Immediate);
+        }
+
+        0x0D => {
+            self.ora(&AddressingMode::Absolute);
+        }
 
         0x0E => {
             self.asl(&AddressingMode::Absolute);
@@ -326,6 +382,25 @@ impl CPU {
             self.program_counter += 1;
         }
 
+        0x2A => {
+            self.rol_accumulator();
+        }
+        
+
+        /* JSR - Jump to Subroutine
+         * The JSR instruction pushes the address (minus one) of the return point 
+         * on to the stack and then sets the program counter to the target memory address. */
+        0x20 => {
+            self.stack_push_u16(self.program_counter + 2 -1);
+            let target_memory_address = self.mem_read_u16(self.program_counter);
+            self.program_counter = target_memory_address;
+        }
+
+
+
+        0x38 => {
+            self.sec();
+        }
 
         0xAA => {
             self.tax();

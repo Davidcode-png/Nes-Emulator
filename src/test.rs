@@ -76,5 +76,19 @@ mod test{
         assert_eq!(cpu.register_a, 0x20);
    }
 
+   #[test]
+   fn test_rol_accumulator(){
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, 0x10, 0x2A, 0x00]);
+        assert_eq!(cpu.register_a, 0x20);
+   }
+
+   #[test]
+   fn test_rol_accumulator_multiple_times(){
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, 0x10, 0x2A, 0x2A, 0x2A, 0x2A, 0x00]);
+        assert_eq!(cpu.register_a, 0x00);
+
+   }
 }
 
