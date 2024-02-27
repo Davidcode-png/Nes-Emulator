@@ -189,6 +189,16 @@ impl CPU {
         self.stack_push(hi);
         self.stack_push(lo);
  }
+    fn stack_pop(&mut self) -> u8 {
+        self.stack_pointer = self.stack_pointer.wrapping_add(1);
+        self.mem_read((STACK as u16) + self.stack_pointer as u16)
+    }
+ fn stack_pop_u16(&mut self) -> u16{
+    let lo = self.stack_pop() as u16;
+    let hi = self.stack_pop() as u16;
+    
+    hi << 8 | lo;
+ }
     // Load value to register A
    fn lda(&mut self, mode: &AddressingMode){
         let addr = self.get_operand_address(&mode);
@@ -293,6 +303,11 @@ impl CPU {
         shifted_value
    }
 
+   fn sta(&mut self, mode: &AddressingMode){
+       let addr = self.get_operand_address(&mode);
+       self.mem_write(addr, self.register_a); 
+   }
+
    /* Logical Inclusive OR*/
    fn ora(&mut self, mode: &AddressingMode){
         let addr = self.get_operand_address(&mode);
@@ -372,6 +387,10 @@ impl CPU {
             self.ora(&AddressingMode::Absolute);
         }
 
+        0x11 => {
+            self.ora(&AddressingMode::Indirect_Y);
+        }
+
         0x0E => {
             self.asl(&AddressingMode::Absolute);
             self.program_counter += 1;
@@ -381,6 +400,11 @@ impl CPU {
             self.asl(&AddressingMode::Absolute_X);
             self.program_counter += 1;
         }
+
+        0x85 => {
+            self.sta(&AddressingMode::ZeroPage);
+        }
+
 
         0x2A => {
             self.rol_accumulator();
@@ -395,13 +419,15 @@ impl CPU {
             let target_memory_address = self.mem_read_u16(self.program_counter);
             self.program_counter = target_memory_address;
         }
-
-
+        
+        /* RTS - Return from sub routine */
+        0x60 => {
+            self.program_counter = self.stack_pop_u16() + 1;
+        }
 
         0x38 => {
             self.sec();
         }
-
         0xAA => {
             self.tax();
         }
