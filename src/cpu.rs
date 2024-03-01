@@ -196,8 +196,7 @@ impl CPU {
  fn stack_pop_u16(&mut self) -> u16{
     let lo = self.stack_pop() as u16;
     let hi = self.stack_pop() as u16;
-    
-    hi << 8 | lo;
+    hi << 8 | lo
  }
     // Load value to register A
    fn lda(&mut self, mode: &AddressingMode){
@@ -213,7 +212,14 @@ impl CPU {
         self.register_x = self.register_a;
         self.update_status_flag(self.register_x);
    }
-    
+   
+   fn branch(&mut self, condition: bool){
+        if condition{
+            let jump: i8 = self.mem_read(self.program_counter) as i8;
+            let jump_addr = self.program_counter.wrapping_add(1).wrapping_add(jump as u16);
+            self.program_counter = jump_addr;
+        }
+   }
     
 
    // Arithmetic Shift Left
@@ -308,6 +314,22 @@ impl CPU {
        self.mem_write(addr, self.register_a); 
    }
 
+   fn inc_mem(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(&mode);
+        let mut value = self.mem_read(addr);
+        value = value.wrapping_add(1);
+        self.mem_write(addr, value);
+        self.update_status_flag(value);
+   }
+
+   fn clc (&mut self) {
+        self.status.remove(CpuFlags::CARRY);
+   }
+
+   fn jmp(&mut self, &mode: AddressingMode){
+
+   }
+
    /* Logical Inclusive OR*/
    fn ora(&mut self, mode: &AddressingMode){
         let addr = self.get_operand_address(&mode);
@@ -381,14 +403,30 @@ impl CPU {
 
         0x09 => {
             self.ora(&AddressingMode::Immediate);
+            self.program_counter += 1;
         }
 
         0x0D => {
             self.ora(&AddressingMode::Absolute);
+            self.program_counter += 1;
+        }
+
+        0x15 => {
+            self.ora(&AddressingMode::ZeroPage_X);
+            self.program_counter += 1;
         }
 
         0x11 => {
             self.ora(&AddressingMode::Indirect_Y);
+            self.program_counter += 1;
+        }
+
+        0x19 => {
+            self.ora(&AddressingMode::Absolute_Y);
+        }
+
+        0x10 => {
+            self.branch(!self.status.contains(CpuFlags::NEGATIVE));
         }
 
         0x0E => {
@@ -396,7 +434,7 @@ impl CPU {
             self.program_counter += 1;
         }
 
-        0x0E => {
+        0x1E => {
             self.asl(&AddressingMode::Absolute_X);
             self.program_counter += 1;
         }
@@ -405,9 +443,18 @@ impl CPU {
             self.sta(&AddressingMode::ZeroPage);
         }
 
+        0xFE => {
+            self.inc_mem(&AddressingMode::Absolute_X);
+        }
 
         0x2A => {
             self.rol_accumulator();
+        }
+
+        0x4C => {
+            let address = self.mem_read_u16(self.program_counter);
+            self.program_counter = address;
+            /* The Flags are not affected */
         }
         
 
@@ -436,9 +483,14 @@ impl CPU {
             self.inx();
         }
 
+        0x18 => {
+            self.clc();
+        }
+
         0xCA => {
             self.dex();
         }
+
         0x00 => return, 
 
             _ => panic!("Unknown {} opcode encountered", opscode),
