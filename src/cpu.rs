@@ -205,6 +205,13 @@ impl CPU {
         self.register_a = value;
         self.update_status_flag(self.register_a);
    }
+
+   fn ldx(&mut self, mode: &AddressingMode){
+        let addr = self.get_operand_address(&mode);
+        let value = self.mem_read(addr);
+        self.register_x = value;
+        self.update_status_flag(self.register_x);
+   }
    
 
    // Transfer register A to register X
@@ -314,6 +321,14 @@ impl CPU {
        self.mem_write(addr, self.register_a); 
    }
 
+   fn compare(&mut self, mode: &AddressingMode, compare_with: u8){
+        let addr = self.get_operand_address(&mode);
+        let value = self.mem_read(addr);
+        if value <= compare_with{self.status.insert(CpuFlags::CARRY);}
+        else {self.status.remove(CpuFlags::CARRY);}
+        self.update_status_flag(compare_with.wrapping_sub(1));
+   }
+
    fn inc_mem(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(&mode);
         let mut value = self.mem_read(addr);
@@ -324,10 +339,6 @@ impl CPU {
 
    fn clc (&mut self) {
         self.status.remove(CpuFlags::CARRY);
-   }
-
-   fn jmp(&mut self, &mode: AddressingMode){
-
    }
 
    /* Logical Inclusive OR*/
@@ -357,6 +368,21 @@ impl CPU {
             self.lda(&AddressingMode::Absolute);
             self.program_counter += 1;
         }
+        
+        0xB5 => {
+            self.lda(&AddressingMode::ZeroPage);
+            self.program_counter += 1;
+        }
+
+        0xA2 => {
+            self.ldx(&AddressingMode::Immediate);
+            self.program_counter += 1;
+        }
+
+        0xA6 => {
+            self.ldx(&AddressingMode::ZeroPage);
+            self.program_counter += 1;
+        }
 
         0x69 => {
             self.adc(&AddressingMode::Immediate);
@@ -375,6 +401,11 @@ impl CPU {
         
         0x29 => {
             self.and(&AddressingMode::Immediate);
+            self.program_counter += 1;
+        }
+
+        0x35 => {
+            self.and(&AddressingMode::ZeroPage_X);
             self.program_counter += 1;
         }
 
@@ -425,8 +456,20 @@ impl CPU {
             self.ora(&AddressingMode::Absolute_Y);
         }
 
+        0x01 => {
+            self.ora(&AddressingMode::Indirect_X);
+        }
+
         0x10 => {
             self.branch(!self.status.contains(CpuFlags::NEGATIVE));
+        }
+
+        0xB0 => {
+            self.branch(!self.status.contains(CpuFlags::CARRY));
+        }
+
+        0xD0 => {
+            self.branch(!self.status.contains(CpuFlags::ZERO));
         }
 
         0x0E => {
@@ -443,6 +486,18 @@ impl CPU {
             self.sta(&AddressingMode::ZeroPage);
         }
 
+        0x81 => {
+            self.sta(&AddressingMode::Indirect_X);
+        }
+        
+        0x91 => {
+            self.sta(&AddressingMode::Indirect_Y);
+        }
+
+        0xE6 => {
+            self.inc_mem(&AddressingMode::ZeroPage);
+        }
+
         0xFE => {
             self.inc_mem(&AddressingMode::Absolute_X);
         }
@@ -456,7 +511,6 @@ impl CPU {
             self.program_counter = address;
             /* The Flags are not affected */
         }
-        
 
         /* JSR - Jump to Subroutine
          * The JSR instruction pushes the address (minus one) of the return point 
@@ -465,6 +519,14 @@ impl CPU {
             self.stack_push_u16(self.program_counter + 2 -1);
             let target_memory_address = self.mem_read_u16(self.program_counter);
             self.program_counter = target_memory_address;
+        }
+
+        0xC9 => {
+            self.compare(&AddressingMode::Immediate, self.register_a);
+        }
+
+        0xC5 => {
+            self.compare(&AddressingMode::ZeroPage, self.register_a);
         }
         
         /* RTS - Return from sub routine */
@@ -485,6 +547,14 @@ impl CPU {
 
         0x18 => {
             self.clc();
+        }
+        
+
+        /* NOP - No Operation
+         *The NOP instruction causes no changes to the processor other than the normal 
+         incrementing of the program counter to the next instruction.*/
+        0xEA => {
+            self.program_counter += 1;
         }
 
         0xCA => {

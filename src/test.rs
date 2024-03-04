@@ -90,5 +90,6 @@ mod test{
         assert_eq!(cpu.register_a, 0x00);
 
    }
+
 }
 
