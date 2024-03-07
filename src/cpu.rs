@@ -248,6 +248,21 @@ impl CPU {
         self.update_status_flag(value);
         value
     }
+
+   fn lsr_accumulaotor(&mut self){
+        let mut value = self.register_a;
+        let carry = value > 128;
+        if carry {self.status.insert(CpuFlags::CARRY);} else {self.status.remove(CpuFlags::CARRY);}
+        value /= 2;
+        self.set_register_a(value as u8);
+   }
+
+   fn php(&mut self) {
+        let mut flags = self.status;
+        flags.insert(CpuFlags::BREAK);
+        flags.insert(CpuFlags::BREAK2);
+        self.stack_push(flags.bits());
+    }
     
     // INX (INcrement X)
    fn inx(&mut self){
@@ -320,6 +335,18 @@ impl CPU {
        let addr = self.get_operand_address(&mode);
        self.mem_write(addr, self.register_a); 
    }
+   
+   fn bit(&mut self, mode: &AddressingMode){
+        let addr = self.get_operand_address(&mode);
+        let value = self.mem_read(addr);
+        let result = self.register_a & value;
+        // Updating the zero flag based on the result
+        if result == 0{self.status.remove(CpuFlags::ZERO);} else{self.status.insert(CpuFlags::ZERO);}
+        
+        // Updating the Overflow and Negative flags based on the data
+        self.status.set(CpuFlags::OVERFLOW, value & 0b01000000 > 0);
+        self.status.set(CpuFlags::NEGATIVE, value & 0b10000000 > 0);
+   } 
 
    fn compare(&mut self, mode: &AddressingMode, compare_with: u8){
         let addr = self.get_operand_address(&mode);
@@ -454,10 +481,16 @@ impl CPU {
 
         0x19 => {
             self.ora(&AddressingMode::Absolute_Y);
+            self.program_counter += 1;
         }
 
         0x01 => {
             self.ora(&AddressingMode::Indirect_X);
+            self.program_counter += 1;
+        }
+
+        0x24 => {
+            self.bit(&AddressingMode::ZeroPage);
         }
 
         0x10 => {
@@ -470,6 +503,10 @@ impl CPU {
 
         0xD0 => {
             self.branch(!self.status.contains(CpuFlags::ZERO));
+        }
+
+        0xB0 => {
+            self.branch(self.status.contains(CpuFlags::CARRY));
         }
 
         0x0E => {
@@ -506,6 +543,14 @@ impl CPU {
             self.rol_accumulator();
         }
 
+        0x26 => {
+            self.rol(&AddressingMode::ZeroPage);
+        }
+
+        0x4A => {
+            self.lsr_accumulaotor();
+        }
+
         0x4C => {
             let address = self.mem_read_u16(self.program_counter);
             self.program_counter = address;
@@ -528,10 +573,15 @@ impl CPU {
         0xC5 => {
             self.compare(&AddressingMode::ZeroPage, self.register_a);
         }
+ 
         
         /* RTS - Return from sub routine */
         0x60 => {
             self.program_counter = self.stack_pop_u16() + 1;
+        }
+        
+        0x08 => {
+            self.php();
         }
 
         0x38 => {
