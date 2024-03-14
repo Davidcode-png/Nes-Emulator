@@ -26,7 +26,7 @@ pub enum AddressingMode {
 }
 
 bitflags!{
-
+    #[derive (Copy, Clone)]
     pub struct CpuFlags: u8{
        const CARRY = 0b00000001;
        const ZERO = 0b00000010;
@@ -150,8 +150,8 @@ impl CPU {
     }
     
     pub fn load(&mut self, program: Vec<u8>){
-        self.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
-        self.mem_write_u16(0xFFFc ,0x8000);
+        self.memory[0x0600 .. (0x0600 + program.len())].copy_from_slice(&program[..]);
+        self.mem_write_u16(0xFFFc ,0x0600);
     }
    
     fn set_register_a(&mut self, value: u8) {
@@ -212,12 +212,23 @@ impl CPU {
         self.register_x = value;
         self.update_status_flag(self.register_x);
    }
-   
+ 
+   fn ldy(&mut self, mode: &AddressingMode){
+        let addr = self.get_operand_address(&mode);
+        let value = self.mem_read(addr);
+        self.register_y = value;
+        self.update_status_flag(self.register_y);
+   }
+     
 
    // Transfer register A to register X
    fn tax(&mut self){
         self.register_x = self.register_a;
         self.update_status_flag(self.register_x);
+   }
+
+   fn txa(&mut self){
+        self.set_register_a(self.register_x);
    }
    
    fn branch(&mut self, condition: bool){
@@ -258,7 +269,7 @@ impl CPU {
    }
 
    fn php(&mut self) {
-        let mut flags = self.status;
+        let mut flags = self.status.clone();
         flags.insert(CpuFlags::BREAK);
         flags.insert(CpuFlags::BREAK2);
         self.stack_push(flags.bits());
@@ -364,6 +375,14 @@ impl CPU {
         self.update_status_flag(value);
    }
 
+   fn dec_mem(&mut self, mode: &AddressingMode){
+        let addr = self.get_operand_address(&mode);
+        let mut value = self.mem_read(addr);
+        value = value.wrapping_sub(1);
+        self.mem_write(addr, value);
+        self.update_status_flag(value);
+   }
+
    fn clc (&mut self) {
         self.status.remove(CpuFlags::CARRY);
    }
@@ -376,10 +395,19 @@ impl CPU {
    }
 
    pub fn interpret(&mut self) {
+        self.run_with_callback(|_| {});
+    }
+
+    pub fn run_with_callback<F>(&mut self, mut callback: F)
+    where
+        F: FnMut(&mut CPU),
+    {
+   //pub fn interpret(&mut self) {
     loop {
         let opscode = self.mem_read(self.program_counter);
         self.program_counter += 1;
-
+        let program_counter_state = self.program_counter;
+        println!("{}", opscode);
         match opscode {
         0xA9 => {
             self.lda(&AddressingMode::Immediate);
@@ -408,6 +436,12 @@ impl CPU {
 
         0xA6 => {
             self.ldx(&AddressingMode::ZeroPage);
+            self.program_counter += 1;
+        }
+
+
+        0xA0 => {
+            self.ldy(&AddressingMode::Immediate);
             self.program_counter += 1;
         }
 
@@ -443,7 +477,7 @@ impl CPU {
 
         0x2D => {
             self.and(&AddressingMode::Absolute);
-            self.program_counter += 1;
+            self.program_counter += 2;
         }
         
         0x0A => self.asl_accumulator(),
@@ -466,7 +500,7 @@ impl CPU {
 
         0x0D => {
             self.ora(&AddressingMode::Absolute);
-            self.program_counter += 1;
+            self.program_counter += 2;
         }
 
         0x15 => {
@@ -481,7 +515,7 @@ impl CPU {
 
         0x19 => {
             self.ora(&AddressingMode::Absolute_Y);
-            self.program_counter += 1;
+            self.program_counter += 2;
         }
 
         0x01 => {
@@ -491,22 +525,29 @@ impl CPU {
 
         0x24 => {
             self.bit(&AddressingMode::ZeroPage);
+            self.program_counter += 1;
         }
 
         0x10 => {
             self.branch(!self.status.contains(CpuFlags::NEGATIVE));
+            self.program_counter += 1;
         }
 
-        0xB0 => {
+        /*0xB0 => {
             self.branch(!self.status.contains(CpuFlags::CARRY));
-        }
+        }*/
 
         0xD0 => {
             self.branch(!self.status.contains(CpuFlags::ZERO));
+            self.program_counter += 1;
         }
 
         0xB0 => {
             self.branch(self.status.contains(CpuFlags::CARRY));
+        }
+
+        0xF0 => {
+            self.branch(self.status.contains(CpuFlags::ZERO));
         }
 
         0x0E => {
@@ -521,14 +562,22 @@ impl CPU {
 
         0x85 => {
             self.sta(&AddressingMode::ZeroPage);
+            self.program_counter += 1;
+        }
+
+        0x95 => {
+            self.sta(&AddressingMode::ZeroPage_X);
+            self.program_counter += 1;
         }
 
         0x81 => {
             self.sta(&AddressingMode::Indirect_X);
+            self.program_counter += 1;
         }
         
         0x91 => {
             self.sta(&AddressingMode::Indirect_Y);
+            self.program_counter += 1;
         }
 
         0xE6 => {
@@ -537,6 +586,10 @@ impl CPU {
 
         0xFE => {
             self.inc_mem(&AddressingMode::Absolute_X);
+        }
+
+        0xC6 => {
+            self.dec_mem(&AddressingMode::ZeroPage);
         }
 
         0x2A => {
@@ -568,10 +621,15 @@ impl CPU {
 
         0xC9 => {
             self.compare(&AddressingMode::Immediate, self.register_a);
+            self.program_counter += 1 as u16;
         }
 
         0xC5 => {
             self.compare(&AddressingMode::ZeroPage, self.register_a);
+        }
+
+        0xE4 => {
+            self.compare(&AddressingMode::ZeroPage, self.register_x);
         }
  
         
@@ -589,6 +647,10 @@ impl CPU {
         }
         0xAA => {
             self.tax();
+        }
+
+        0x8A => {
+            self.txa();
         }
 
         0xE8 => {
@@ -615,6 +677,8 @@ impl CPU {
 
             _ => panic!("Unknown {} opcode encountered", opscode),
         }
+
+        callback(self);
     }
    }
  }
