@@ -88,11 +88,11 @@ pub fn main(){
     let mut canvas = window.into_canvas().present_vsync().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
     canvas.set_scale(10.0, 10.0).unwrap();
-    println!("HERE WORKS");
     let creator = canvas.texture_creator();
     let mut texture = creator
         .create_texture_target(PixelFormatEnum::RGB24, 32, 32).unwrap();
     
+
 
     let game_code = vec![
         0x20, 0x06, 0x06, 0x20, 0x38, 0x06, 0x20, 0x0d, 0x06, 0x20, 0x2a, 0x06, 0x60, 0xa9, 0x02,
@@ -126,16 +126,13 @@ pub fn main(){
 
     let mut screen_state = [0 as u8; 32 * 3 * 32];
     let mut rng = rand::thread_rng();
-    println!("THIS SECTION IS WORKING");
     // run the game cycle
     cpu.run_with_callback(move |cpu| {
         handle_user_input(cpu, &mut event_pump);
-        println!("WOULD THIS WORK");
         cpu.mem_write(0xfe, rng.gen_range(1..16));
 
         if read_screen_state(cpu, &mut screen_state) {
             texture.update(None, &screen_state, 32 * 3).unwrap();
-            println!("CHECKING OUT THE LOOP");
             canvas.copy(&texture, None, None).unwrap();
 
             canvas.present();

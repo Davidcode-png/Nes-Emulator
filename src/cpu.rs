@@ -219,7 +219,13 @@ impl CPU {
         self.register_y = value;
         self.update_status_flag(self.register_y);
    }
-     
+
+
+   fn eor(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let value = self.mem_read(addr);
+        self.set_register_a(value ^ self.register_a);
+}
 
    // Transfer register A to register X
    fn tax(&mut self){
@@ -544,20 +550,22 @@ impl CPU {
 
         0xB0 => {
             self.branch(self.status.contains(CpuFlags::CARRY));
+            self.program_counter += 1;
         }
 
         0xF0 => {
             self.branch(self.status.contains(CpuFlags::ZERO));
+            self.program_counter += 1;
         }
 
         0x0E => {
             self.asl(&AddressingMode::Absolute);
-            self.program_counter += 1;
+            self.program_counter += 2;
         }
 
         0x1E => {
             self.asl(&AddressingMode::Absolute_X);
-            self.program_counter += 1;
+            self.program_counter += 2;
         }
 
         0x85 => {
@@ -580,16 +588,24 @@ impl CPU {
             self.program_counter += 1;
         }
 
+        0x8D => {
+            self.sta(&AddressingMode::Absolute);
+            self.program_counter += 2;
+        }
+
         0xE6 => {
             self.inc_mem(&AddressingMode::ZeroPage);
+            self.program_counter += 1;
         }
 
         0xFE => {
             self.inc_mem(&AddressingMode::Absolute_X);
+            self.program_counter += 2;
         }
 
         0xC6 => {
             self.dec_mem(&AddressingMode::ZeroPage);
+            self.program_counter += 1;
         }
 
         0x2A => {
@@ -598,6 +614,7 @@ impl CPU {
 
         0x26 => {
             self.rol(&AddressingMode::ZeroPage);
+            self.program_counter += 1;
         }
 
         0x4A => {
@@ -608,6 +625,7 @@ impl CPU {
             let address = self.mem_read_u16(self.program_counter);
             self.program_counter = address;
             /* The Flags are not affected */
+            self.program_counter += 2;
         }
 
         /* JSR - Jump to Subroutine
@@ -617,6 +635,7 @@ impl CPU {
             self.stack_push_u16(self.program_counter + 2 -1);
             let target_memory_address = self.mem_read_u16(self.program_counter);
             self.program_counter = target_memory_address;
+            self.program_counter += 1;
         }
 
         0xC9 => {
@@ -626,17 +645,25 @@ impl CPU {
 
         0xC5 => {
             self.compare(&AddressingMode::ZeroPage, self.register_a);
+            self.program_counter += 1;
         }
 
         0xE4 => {
             self.compare(&AddressingMode::ZeroPage, self.register_x);
+            self.program_counter += 1;
         }
- 
+
+        0x4D =>{
+            self.eor(&AddressingMode::Absolute);
+            self.program_counter += 2;
+        }
         
         /* RTS - Return from sub routine */
         0x60 => {
             self.program_counter = self.stack_pop_u16() + 1;
         }
+
+       
         
         0x08 => {
             self.php();
@@ -660,7 +687,7 @@ impl CPU {
         0x18 => {
             self.clc();
         }
-        
+      
 
         /* NOP - No Operation
          *The NOP instruction causes no changes to the processor other than the normal 
