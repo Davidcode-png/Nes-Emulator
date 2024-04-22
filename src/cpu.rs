@@ -632,7 +632,7 @@ impl CPU {
          * The JSR instruction pushes the address (minus one) of the return point 
          * on to the stack and then sets the program counter to the target memory address. */
         0x20 => {
-            self.stack_push_u16(self.program_counter + 2 -1);
+            self.stack_push_u16(self.program_counter + 1 );
             let target_memory_address = self.mem_read_u16(self.program_counter);
             self.program_counter = target_memory_address;
             self.program_counter += 1;
@@ -661,6 +661,7 @@ impl CPU {
         /* RTS - Return from sub routine */
         0x60 => {
             self.program_counter = self.stack_pop_u16() + 1;
+            // self.program_counter +=1;
         }
 
        

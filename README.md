@@ -41,6 +41,9 @@ To run test,
 cargo test
 ```
 
+## Demo
+<!-- ![](media/GameDemo.mp4) -->
+
 ## Contributing
 We welcome contributions from the community to improve NES Emulator. To contribute, follow these steps:
 
