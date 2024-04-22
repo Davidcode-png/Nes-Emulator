@@ -9,6 +9,7 @@ NES Emulator is a lightweight emulator for the Nintendo Entertainment System (NE
 - [Installation](#installation)
 - [Usage](#usage)
 - [Test](#test)
+- [Demo](#demo)
 - [Contribution](#contribution)
 - [License](#license)
 
@@ -42,7 +43,7 @@ cargo test
 ```
 
 ## Demo
-<!-- ![](media/GameDemo.mp4) -->
+[Watch GameDemo Video](https://github.com/Davidcode-png/Nes-Emulator/blob/master/media/GameDemo.mp4)
 
 ## Contributing
 We welcome contributions from the community to improve NES Emulator. To contribute, follow these steps:
