@@ -43,7 +43,7 @@ cargo test
 ```
 
 ## Demo
-![](https://github.com/Davidcode-png/Nes-Emulator/blob/master/media/GameDemo.mp4)
+![Alt Text](https://github.com/Davidcode-png/Nes-Emulator/blob/master/media/GameDemo.gif)
 
 ## Contributing
 We welcome contributions from the community to improve NES Emulator. To contribute, follow these steps:
